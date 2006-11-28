@@ -1,0 +1,339 @@
+#!/usr/bin/suidperl
+#
+# POE parallel ping
+#   (based on the POE cookbook version at 
+#    http://poe.perl.org/?POE_Cookbook/Pinging_Multiple_Hosts)
+#
+
+use strict;
+use warnings;
+
+use Getopt::Std;
+use File::Basename;
+use File::Spec::Functions;
+use POE qw(Component::Client::Ping);
+use Term::ANSIColor;
+use Term::Size;
+use Config::Tiny;
+
+$|++;
+
+my %DEFAULTS = (
+  warn => 0.15,
+  crit => 0.3,
+);
+
+BEGIN {
+    die "POE::Component::Client::Ping requires root privilege\n" if $>;
+}
+
+my %opts = ();
+getopts('?hBc:vst:w:', \%opts);
+my $bold = $opts{B} ? '' : 'bold';
+my $crit = $opts{c};
+my $help = $opts{h} || $opts{'?'};
+my $squash = $opts{s};
+my $type = $opts{t};
+my $verbose = $opts{v};
+my $warn = $opts{w};
+
+die "usage: " . basename($0) . " [-w <warn_sec>] [-c <crit_sec>] [-v] <host> [<host2> ...]\n" if $help || ! @ARGV;
+
+my @addresses = @ARGV;
+
+# Unless both 'warn' and 'crit' are defined, check for a .pping config file
+my $Config;
+unless ($warn && $crit) {
+  my $config_file = catfile($ENV{HOME}, '.pping');
+  if (-f $config_file) {
+    $Config = Config::Tiny->read( $config_file ) || {};
+    if ($type) {
+      die "No type '$type' section found in config file $config_file\n"
+        unless exists $Config->{$type};
+      $warn ||= $Config->{$type}->{warn};
+      $crit ||= $Config->{$type}->{crit};
+    }
+    $warn ||= $Config->{_}->{warn};
+    $crit ||= $Config->{_}->{crit};
+  }
+  $warn ||= $DEFAULTS{warn};
+  $crit ||= $DEFAULTS{crit};
+}
+
+#------------------------------------------------------------------------------
+# The main loop.
+
+# Create a pinger component.  This will do the work of multiple
+# concurrent pings.  It requires another session to interact with it.
+
+POE::Component::Client::Ping->spawn
+  ( Alias => 'pinger',          # The component's name will be "pinger".
+    Timeout => 1,               # The default ping timeout.
+    OneReply => 1,              # Don't wait for multiple replies
+  );
+
+# Create a session that will use the pinger.  Its parameters match
+# event names with the functions that will handle them.
+
+POE::Session->create
+  ( inline_states =>
+      { _start => \&client_start,       # Call client_start() to handle "_start".
+        do_ping => \&do_ping,           # Call do_ping to initiate a new ping set.
+        pong => \&got_pong,             # Call got_pong() to handle client "pong".
+        timeout => \&timeout,           # Call timeout to collate and report responses.
+      }
+  );
+
+$poe_kernel->run();
+
+exit;
+
+#------------------------------------------------------------------------------
+# Helper subroutines.
+
+sub print_field {
+    my ( $heap, $field, $value, $colour ) = @_;
+
+    my $width = $squash ? $heap->{width}->{$field} : $heap->{maxwidth};
+    my $format = sprintf "%%%d.%ds ", $width, $width;
+    print color "$bold $colour" if $colour;
+    printf $format, $value;
+    print color 'reset' if $colour;
+}
+
+# Print out a pretty header line
+sub print_header {
+    my ( $heap ) = @_;
+  
+    print color "$bold blue";
+    for my $address (@addresses) {
+      my $label = $address;
+      if (! $squash && $heap->{maxwidth} > length($label) + 1) {
+        $label = ('-' x ($heap->{maxwidth} - (length($label) + 1))) . ' ' . $label;
+      }
+      print_field( $heap, $address, $label );
+    }
+    print color 'reset';
+    print "\n"; 
+}
+
+#------------------------------------------------------------------------------
+# Event handlers.
+
+# Initialise heap and kick off the first batch of pings
+sub client_start {
+    my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
+
+#   print "in client_start\n" if $verbose;
+
+    # Initialise heap data
+    $heap->{rtt} = {};
+    # Setup field widths
+    $heap->{maxwidth} = 0;
+    foreach (@addresses) {
+        $heap->{width}->{$_} = length($_) > 5 ? length($_) : 5;
+        $heap->{maxwidth} = length($_) if length($_) > $heap->{maxwidth};
+    }
+    # Setup term size tracking
+    ($heap->{cols}, $heap->{rows}) = Term::Size::chars *STDOUT{IO};
+    $heap->{lines} = 1;
+   
+    # Print out an initial header
+    print_header($heap);
+
+    $kernel->yield( 'do_ping' );
+}
+
+# Send out a batch of pings
+sub do_ping {
+    my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
+
+#   print "in do_ping\n" if $verbose;
+
+    foreach my $address (@addresses) {
+        print "Pinging $address at ", scalar(localtime), "\n" if $verbose;
+
+        # "Pinger, do a ping and return the results as a pong event.  The
+        # address to ping is $address."
+
+        $kernel->post( pinger => ping => pong => $address );
+    }
+   
+    # Add a 1s timeout event to produce a summary of results
+    $kernel->delay( timeout => 1 );
+}
+
+# Handle a "pong" event (a reply to our ping).
+sub got_pong {
+    my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
+
+#   print "in got_pong\n" if $verbose;
+
+    # The original request is returned as the first parameter.  It
+    # contains the address we wanted to ping, the total time to wait for
+    # a response, and the time the request was made.
+
+    my $request_packet = $_[ARG0];
+    my ( $request_address, $request_timeout ) = @{$request_packet};
+
+    # The response information is returned as the second parameter.  It
+    # contains the response address (which may be different from the
+    # request address), the ping's round-trip time, and the time the
+    # reply was received.
+
+    my $response_packet = $_[ARG1];
+    my ( $response_address, $roundtrip_time ) = @{$response_packet};
+
+    # Because we've set OneReply in the component, we should only receive one response here
+    $heap->{rtt}->{$request_address} ||= $roundtrip_time;
+}
+
+sub timeout {
+    my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
+
+#   print "in timeout\n" if $verbose;
+
+    if ($heap->{lines} >= $heap->{rows} - 1) {
+        print_header($heap);
+        $heap->{lines} = 1;
+    }
+
+    # Report our results
+    for my $address (@addresses) {
+        if (my $rtt = $heap->{rtt}->{$address}) {
+            my $colour = $rtt >= $crit ? 'red' : $rtt >= $warn ? 'yellow' : 'green';
+            print_field( $heap, $address, sprintf('%0.03f', $rtt), $colour );
+        } else {
+            print_field( $heap, $address, '***', 'magenta' );
+        }
+    }
+    print "\n";
+
+    $heap->{lines}++;
+
+    # Reset our RTT tracking
+    $heap->{rtt} = {};
+
+    $kernel->yield( 'do_ping' );
+}
+
+#------------------------------------------------------------------------------
+
+__END__
+
+=head1 NAME
+
+pping - parallel ping, sending ICMP echo requests to multiple hosts
+
+=head1 SYNOPSIS
+
+    pping [-sB] [-w <warn_sec>] [-c <crit_sec>] <host1> [<host2> ...]
+
+=head1 DESCRIPTION
+
+pping is a parallel-ping utility for sending multiple ICMP echo requests 
+to sets of target hosts. It produces a line of output every second
+reporting colour-coded round-trip-times for every host (or '***' where 
+no response is received from a host).
+
+Hosts are reported in the order they are given on the command line;
+the output is something like:
+
+    $ pping red001 red002 red003 red004 red005
+    red001 red002 red003 red004 red005
+      0.04   0.03    ***   0.04   0.04
+      0.04   0.03    ***   0.04   0.03
+      0.03   0.03    ***   0.03   0.03
+      0.04   0.04    ***   0.04   0.03
+
+where red003 is down.
+
+Round-trip-time (RTT) responses are colour-coded: green means the RTT is
+below the 'warn' threshold; yellow means it is above the 'warn' threshold
+but below the 'critical' one; and red means it is above the 'critical'
+threshold. The no-response '***' signum is coloured magenta.
+
+
+=head2 OPTIONS
+
+=over 4
+
+=item -w <warn_secs>
+
+The 'warn' threshold, in seconds e.g. "-w 0.06". RTTs at or above this 
+threshold (but below the 'critical' one) are coloured yellow, instead of 
+the default green. Thresholds may also be defined by setting a 'warn' 
+value in the '.pping' config file (see below). If no warn threshold is 
+set on the command line or via the config file, the default is 0.15s (150ms).
+
+=item -c <crit_secs>
+
+The 'critical' threshold, in seconds e.g. "-c 0.15". RTTs at or above this 
+threshold are coloured red, instead of the default green. Thresholds may 
+also be defined by setting a 'crit' value in the '.pping' config file (see 
+below). If no critical threshold is set on the command line or via the config 
+file, the default is 0.3s (300ms).
+
+=item -s 
+
+Turn 'squashing' on. By default, output columns are evenly spaced to the 
+width of the longest target hostname or address. If you turn 'squashing'
+on, output columns will be squashed up, taking only the space their
+hostname or address actually requires (resulting in uneven column widths).
+
+=item -t <type>
+
+Load options from the <type> named section of .pping config file e.g. 
+
+    pping -t au host1 host2 host3
+
+would use the following section from the .pping config file:
+
+    [au]
+    warn = 0.250
+    crit = 0.400
+
+=item -B
+
+Turn off bolding of all output.
+
+
+=head2 CONFIG FILE
+
+pping will load warning and critical thresholds from a '.pping' config
+file in your home directory, if one exists. The .pping config file is
+an ini-style file that contains 'name = value' pairs within '[type]'
+sections e.g.
+
+    # Default pping warn and critical thresholds
+    warn = 0.15
+    crit = 0.3
+
+    # Named 'type' sections e.g. pping -t lan host1 host2 host3
+    [lan]
+    warn = 0.05
+    crit = 0.08
+
+    [au]
+    warn = 0.250
+    crit = 0.400
+
+Default options may also be defined outside of any '[type]' section, 
+as are the first 'warn' and 'crit' above; they are used if no explicit
+'-t <type>' argument is specified.
+
+
+=head1 AUTHOR
+
+Gavin Carr <gavin@openfusion.com.au>
+
+
+=head1 LICENSE
+
+Copyright 2006 Open Fusion Pty. Ltd. All Rights Reserved.
+
+This program is free software, licensed under the terms of the GNU
+General Public License v2.
+
+=cut
+

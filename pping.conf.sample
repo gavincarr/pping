@@ -1,0 +1,16 @@
+# Sample .pping config file 
+# Copy to your home directory as .pping and adjust to taste
+
+# Default pping warn and critical thresholds
+warn = 0.15
+crit = 0.3
+
+# Named 'type' sections e.g. pping -t lan host1 host2 host3
+[lan]
+warn = 0.05
+crit = 0.08
+
+[au]
+warn = 0.250
+crit = 0.400
+
