@@ -1,4 +1,4 @@
-#!/usr/bin/suidperl
+#!/usr/bin/perl
 #
 # POE parallel ping
 #   (based on the POE cookbook version at 
