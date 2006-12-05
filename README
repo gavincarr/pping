@@ -8,6 +8,9 @@ reporting colour-coded round-trip-times for every host.
 See 'perldoc pping' for more documentation (or the man page if using the
 rpm version).
 
+pping is based on the POE Cookbook parallel ping available at
+http://poe.perl.org/?POE_Cookbook/Pinging_Multiple_Hosts.
+
 
 Prerequisites
 =============
