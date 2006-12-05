@@ -1,8 +1,8 @@
 
 Summary: Utility to ping multiple hosts in parallel
 Name: pping
-Version: 0.01
-Release: 2.of
+Version: %{version}
+Release: 1.of
 License: GPL
 Group: Applications/Internet
 Source: http://www.openfusion.com.au/labs/pping/%{name}-%{version}.tar.gz
@@ -37,8 +37,13 @@ pod2man --section=8 -r "%{name} %{version}" %{name} > %{buildroot}/%{_mandir}/ma
 %attr(4755,root,root) %{_bindir}/%{name}
 %{_mandir}/man8/%{name}*
 %doc pping.conf.sample
+%doc README
+%doc COPYING
 
 %changelog
-* Tue Nov 21 2006 Gavin Carr <gavin@openfusion.com.au> 0.01-1
+* Wed Dec 12 2006 Gavin Carr <gavin@openfusion.com.au> 0.2-1
+- Add README and COPYING files.
+
+* Tue Nov 21 2006 Gavin Carr <gavin@openfusion.com.au> 0.1-1
 - Initial rpm version.
 

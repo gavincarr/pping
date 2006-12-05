@@ -1,0 +1,50 @@
+Introduction
+============
+
+pping is a parallel-ping utility for sending multiple ICMP echo requests
+to sets of target hosts. It produces a line of output every second
+reporting colour-coded round-trip-times for every host.
+
+See 'perldoc pping' for more documentation (or the man page if using the
+rpm version).
+
+
+Prerequisites
+=============
+
+pping is written in perl and requires the following perl modules:
+
+- POE
+- POE::Component::Client::Ping
+- Term::Size::Unix
+- Config::Tiny
+- Term::ANSIColor (from the 'ANSIColor' package)
+- Getopt::Std
+- File::Basename
+- File::Spec
+
+With reasonably modern perls the last four are typically included with
+perl itself.
+
+
+
+Installation
+============
+
+Copy 'pping' to somewhere in your path. 
+
+If you want a man page you can do something like:
+
+  pod2man --section=8 -r pping pping > /usr/share/man/man8/pping.8
+
+as root or via sudo (or just put it somewhere you have permissions and 
+add to your MANPATH).
+
+
+
+Licence
+=======
+
+pping is licensed under the GNU General Public License v2 (see
+the COPYING file).
+
