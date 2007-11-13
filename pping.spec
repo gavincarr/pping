@@ -12,9 +12,11 @@ Vendor: Open Fusion Pty. Ltd.
 Requires: perl, perl-suidperl
 Requires: perl-Term-Size, perl-Term-Size-Unix, perl-Config-Tiny
 Requires: perl-POE, perl-POE-Component-Client-Ping
+Requires: perl-Time-Piece, perl-IO-File
 BuildRequires: perl
 AutoReq: no
 Buildroot: %_tmppath/%{name}-%{version}
+BuildArch: noarch
 
 %description
 pping is a parallel-ping utility for sending multiple ICMP echo requests 
@@ -41,6 +43,9 @@ pod2man --section=8 -r "%{name} %{version}" %{name} > %{buildroot}/%{_mandir}/ma
 %doc COPYING
 
 %changelog
+* Wed Nov 14 2007 Gavin Carr <gavin@openfusion.com.au> 0.3-1
+- Add timestamp and outfile support.
+
 * Wed Dec 12 2006 Gavin Carr <gavin@openfusion.com.au> 0.2-1
 - Add README and COPYING files.
 

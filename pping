@@ -27,12 +27,14 @@ my %DEFAULTS = (
 my $ts_width = 8;
 my $ts_colour = 'white';
 
+our $VERSION = 0.3;
+
 BEGIN {
     die "POE::Component::Client::Ping requires root privilege\n" if $>;
 }
 
 my %opts = ();
-getopts('?hBc:vO:stT:w:', \%opts);
+getopts('?hVBc:vO:stT:w:', \%opts);
 my $bold = $opts{B} ? '' : 'bold';
 my $crit = $opts{c};
 my $help = $opts{h} || $opts{'?'};
@@ -44,6 +46,7 @@ my $verbose = $opts{v};
 my $warn = $opts{w};
 
 die "usage: " . basename($0) . " [-t] [-w <warn_sec>] [-c <crit_sec>] [-v] <host> [<host2> ...]\n" if $help || ! @ARGV;
+die "pping $VERSION\n" if $opts{V};
 
 my @addresses = @ARGV;
 
@@ -297,6 +300,10 @@ threshold are coloured red, instead of the default green. Thresholds may
 also be defined by setting a 'crit' value in the '.pping' config file (see 
 below). If no critical threshold is set on the command line or via the config 
 file, the default is 0.3s (300ms).
+
+=item -O <outfile>
+
+Copy a record of the output to <outfile>.
 
 =item -s 
 
