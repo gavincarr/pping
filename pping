@@ -14,6 +14,7 @@ use File::Spec::Functions;
 use POE qw(Component::Client::Ping);
 use Term::ANSIColor;
 use Term::Size;
+use Time::Piece;
 use Config::Tiny;
 
 $|++;
@@ -22,22 +23,25 @@ my %DEFAULTS = (
   warn => 0.15,
   crit => 0.3,
 );
+my $ts_width = 8;
+my $ts_colour = 'white';
 
 BEGIN {
     die "POE::Component::Client::Ping requires root privilege\n" if $>;
 }
 
 my %opts = ();
-getopts('?hBc:vst:w:', \%opts);
+getopts('?hBc:vstT:w:', \%opts);
 my $bold = $opts{B} ? '' : 'bold';
 my $crit = $opts{c};
 my $help = $opts{h} || $opts{'?'};
 my $squash = $opts{s};
-my $type = $opts{t};
+my $timestamp = $opts{t};
+my $type = $opts{T};
 my $verbose = $opts{v};
 my $warn = $opts{w};
 
-die "usage: " . basename($0) . " [-w <warn_sec>] [-c <crit_sec>] [-v] <host> [<host2> ...]\n" if $help || ! @ARGV;
+die "usage: " . basename($0) . " [-t] [-w <warn_sec>] [-c <crit_sec>] [-v] <host> [<host2> ...]\n" if $help || ! @ARGV;
 
 my @addresses = @ARGV;
 
@@ -92,9 +96,9 @@ exit;
 # Helper subroutines.
 
 sub print_field {
-    my ( $heap, $field, $value, $colour ) = @_;
+    my ( $heap, $field, $value, $colour, $width ) = @_;
 
-    my $width = $squash ? $heap->{width}->{$field} : $heap->{maxwidth};
+    $width ||= $squash ? $heap->{width}->{$field} : $heap->{maxwidth};
     my $format = sprintf "%%%d.%ds ", $width, $width;
     print color "$bold $colour" if $colour;
     printf $format, $value;
@@ -106,6 +110,13 @@ sub print_header {
     my ( $heap ) = @_;
   
     print color "$bold blue";
+    if ($timestamp) {
+      my $label = 'ts';
+      if (! $squash && $ts_width > length($label) + 1) {
+        $label = $label . ' ' . ('-' x ($ts_width - (length($label) + 1)));
+      }
+      print_field( $heap, undef, $label, undef, $ts_width );
+    }
     for my $address (@addresses) {
       my $label = $address;
       if (! $squash && $heap->{maxwidth} > length($label) + 1) {
@@ -199,6 +210,7 @@ sub timeout {
     }
 
     # Report our results
+    print_field( $heap, undef, localtime->strftime("%T"), $ts_colour, $ts_width ) if $timestamp;
     for my $address (@addresses) {
         if (my $rtt = $heap->{rtt}->{$address}) {
             my $colour = $rtt >= $crit ? 'red' : $rtt >= $warn ? 'yellow' : 'green';
@@ -281,11 +293,15 @@ width of the longest target hostname or address. If you turn 'squashing'
 on, output columns will be squashed up, taking only the space their
 hostname or address actually requires (resulting in uneven column widths).
 
-=item -t <type>
+=item -t
+
+Timestamp output records.
+
+=item -T <type>
 
 Load options from the <type> named section of .pping config file e.g. 
 
-    pping -t au host1 host2 host3
+    pping -T au host1 host2 host3
 
 would use the following section from the .pping config file:
 
