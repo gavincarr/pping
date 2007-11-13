@@ -12,7 +12,7 @@ Vendor: Open Fusion Pty. Ltd.
 Requires: perl, perl-suidperl
 Requires: perl-Term-Size, perl-Term-Size-Unix, perl-Config-Tiny
 Requires: perl-POE, perl-POE-Component-Client-Ping
-Requires: perl-Time-Piece, perl-IO-File
+Requires: perl-Time-Piece
 BuildRequires: perl
 AutoReq: no
 Buildroot: %_tmppath/%{name}-%{version}
