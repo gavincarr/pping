@@ -16,6 +16,7 @@ use Term::ANSIColor;
 use Term::Size;
 use Time::Piece;
 use Config::Tiny;
+use IO::File;
 
 $|++;
 
@@ -31,10 +32,11 @@ BEGIN {
 }
 
 my %opts = ();
-getopts('?hBc:vstT:w:', \%opts);
+getopts('?hBc:vO:stT:w:', \%opts);
 my $bold = $opts{B} ? '' : 'bold';
 my $crit = $opts{c};
 my $help = $opts{h} || $opts{'?'};
+my $outfile = $opts{O};
 my $squash = $opts{s};
 my $timestamp = $opts{t};
 my $type = $opts{T};
@@ -63,6 +65,13 @@ unless ($warn && $crit) {
   $warn ||= $DEFAULTS{warn};
   $crit ||= $DEFAULTS{crit};
 }
+
+my $out_fh;
+if ($outfile) {
+  $out_fh = IO::File->new( $outfile, 'w' ) or die "Cannot open '$outfile' for write: $!";
+  $out_fh->autoflush(1);
+}
+END { $out_fh->close if $out_fh; }
 
 #------------------------------------------------------------------------------
 # The main loop.
@@ -102,6 +111,7 @@ sub print_field {
     my $format = sprintf "%%%d.%ds ", $width, $width;
     print color "$bold $colour" if $colour;
     printf $format, $value;
+    printf $out_fh $format, $value if $out_fh;
     print color 'reset' if $colour;
 }
 
@@ -126,6 +136,7 @@ sub print_header {
     }
     print color 'reset';
     print "\n"; 
+    print $out_fh "\n" if $out_fh;
 }
 
 #------------------------------------------------------------------------------
@@ -220,6 +231,7 @@ sub timeout {
         }
     }
     print "\n";
+    print $out_fh "\n" if $out_fh;
 
     $heap->{lines}++;
 
