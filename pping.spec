@@ -1,8 +1,8 @@
 
 Summary: Utility to ping multiple hosts in parallel
 Name: pping
-Version: %{version}
-Release: 1.of
+Version: 0.4
+Release: 1%{?org_tag}%{?dist}
 License: GPL
 Group: Applications/Internet
 Source: http://www.openfusion.com.au/labs/pping/%{name}-%{version}.tar.gz
@@ -43,6 +43,9 @@ pod2man --section=8 -r "%{name} %{version}" %{name} > %{buildroot}/%{_mandir}/ma
 %doc COPYING
 
 %changelog
+* Thu Mar 17 2011 Gavin Carr <gavin@openfusion.com.au> 0.4-1
+- Convert hostnames to ips for pinging, and back for reporting.
+
 * Wed Nov 14 2007 Gavin Carr <gavin@openfusion.com.au> 0.3-1
 - Add timestamp and outfile support.
 
