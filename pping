@@ -192,8 +192,6 @@ sub do_ping {
 sub got_pong {
     my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
 
-#   print "in got_pong\n" if $verbose;
-
     # The original request is returned as the first parameter.  It
     # contains the address we wanted to ping, the total time to wait for
     # a response, and the time the request was made.
@@ -208,6 +206,8 @@ sub got_pong {
 
     my $response_packet = $_[ARG1];
     my ( $response_address, $roundtrip_time ) = @{$response_packet};
+    printf "Response from %s, rtt %s\n", $response_address || '?', $roundtrip_time || '?'
+      if $verbose and $response_packet and @$response_packet;
 
     # Because we've set OneReply in the component, we should only receive one response here
     $heap->{rtt}->{$request_address} ||= $roundtrip_time;
