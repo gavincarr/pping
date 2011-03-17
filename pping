@@ -17,6 +17,8 @@ use Term::Size;
 use Time::Piece;
 use Config::Tiny;
 use IO::File;
+use Socket;
+use Regexp::Common qw(net);
 
 $|++;
 
@@ -48,7 +50,22 @@ my $warn = $opts{w};
 die "usage: " . basename($0) . " [-t] [-w <warn_sec>] [-c <crit_sec>] [-v] <host> [<host2> ...]\n" if $help || ! @ARGV;
 die "pping $VERSION\n" if $opts{V};
 
-my @addresses = @ARGV;
+# Map hostnames to ip addresses, if required
+my @hosts = @ARGV;
+my @addresses;
+# ip => hostname mapping
+my %hostname = ();
+for my $host (@hosts) {
+  if ($host =~ /$RE{net}{IPv4}/) {
+    push @addresses, $host;
+    $hostname{$host} = $host;
+  }
+  else {
+    my $in_addr = inet_aton($host);
+    push @addresses, $in_addr;
+    $hostname{$in_addr} = $host;
+  }
+}
 
 # Unless both 'warn' and 'crit' are defined, check for a .pping config file
 my $Config;
@@ -131,7 +148,7 @@ sub print_header {
       print_field( $heap, undef, $label, undef, $ts_width );
     }
     for my $address (@addresses) {
-      my $label = $address;
+      my $label = $hostname{$address};
       if (! $squash && $heap->{maxwidth} > length($label) + 1) {
         $label = ('-' x ($heap->{maxwidth} - (length($label) + 1))) . ' ' . $label;
       }
@@ -156,8 +173,9 @@ sub client_start {
     # Setup field widths
     $heap->{maxwidth} = 0;
     foreach (@addresses) {
-        $heap->{width}->{$_} = length($_) > 5 ? length($_) : 5;
-        $heap->{maxwidth} = length($_) if length($_) > $heap->{maxwidth};
+        my $addr_width = length $hostname{$_};
+        $heap->{width}->{$_} = $addr_width > 5 ? $addr_width : 5;
+        $heap->{maxwidth} = $addr_width if $addr_width > $heap->{maxwidth};
     }
     # Setup term size tracking
     ($heap->{cols}, $heap->{rows}) = Term::Size::chars *STDOUT{IO};
@@ -176,7 +194,8 @@ sub do_ping {
 #   print "in do_ping\n" if $verbose;
 
     foreach my $address (@addresses) {
-        print "Pinging $address at ", scalar(localtime), "\n" if $verbose;
+        printf "Pinging %s at %s\n", $hostname{$address}, scalar(localtime)
+          if $verbose;
 
         # "Pinger, do a ping and return the results as a pong event.  The
         # address to ping is $address."
