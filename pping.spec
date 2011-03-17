@@ -1,7 +1,7 @@
 
 Summary: Utility to ping multiple hosts in parallel
 Name: pping
-Version: 0.4
+Version: 0.4.1
 Release: 1%{?org_tag}%{?dist}
 License: GPL
 Group: Applications/Internet
@@ -13,6 +13,7 @@ Requires: perl, perl-suidperl
 Requires: perl-Term-Size, perl-Term-Size-Unix, perl-Config-Tiny
 Requires: perl-POE, perl-POE-Component-Client-Ping
 Requires: perl-Time-Piece
+Requires: perl-Regexp-Common
 BuildRequires: perl
 AutoReq: no
 Buildroot: %_tmppath/%{name}-%{version}
@@ -43,6 +44,9 @@ pod2man --section=8 -r "%{name} %{version}" %{name} > %{buildroot}/%{_mandir}/ma
 %doc COPYING
 
 %changelog
+* Thu Mar 17 2011 Gavin Carr <gavin@openfusion.com.au> 0.4.1-1
+- Add missing perl-Regexp-Common dependency.
+
 * Thu Mar 17 2011 Gavin Carr <gavin@openfusion.com.au> 0.4-1
 - Convert hostnames to ips for pinging, and back for reporting.
 
