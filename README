@@ -21,6 +21,7 @@ pping is written in perl and requires the following perl modules:
 - POE::Component::Client::Ping
 - Term::Size::Unix
 - Config::Tiny
+- Regexp::Common
 - Term::ANSIColor (from the 'ANSIColor' package)
 - Getopt::Std
 - File::Basename
