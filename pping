@@ -29,7 +29,7 @@ my %DEFAULTS = (
 my $ts_width = 8;
 my $ts_colour = 'white';
 
-our $VERSION = 0.3;
+our $VERSION = 0.5;
 
 BEGIN {
     die "POE::Component::Client::Ping requires root privilege\n" if $>;
@@ -61,9 +61,13 @@ for my $host (@hosts) {
     $hostname{$host} = $host;
   }
   else {
-    my $in_addr = inet_aton($host);
-    push @addresses, $in_addr;
-    $hostname{$in_addr} = $host;
+    if (my $in_addr = inet_aton($host)) {
+      push @addresses, $in_addr;
+      $hostname{$in_addr} = $host;
+    }
+    else {
+      warn "Warning: can't resolve hostname '$host'\n";
+    }
   }
 }
 
