@@ -1,7 +1,7 @@
 
 Summary: Utility to ping multiple hosts in parallel
 Name: pping
-Version: 0.4.1
+Version: 0.5
 Release: 1%{?org_tag}%{?dist}
 License: GPL
 Group: Applications/Internet
@@ -44,6 +44,9 @@ pod2man --section=8 -r "%{name} %{version}" %{name} > %{buildroot}/%{_mandir}/ma
 %doc COPYING
 
 %changelog
+* Tue Jun 26 2012 Gavin Carr <gavin@openfusion.com.au> 0.5-1
+- Update to version 0.5.
+
 * Thu Mar 17 2011 Gavin Carr <gavin@openfusion.com.au> 0.4.1-1
 - Add missing perl-Regexp-Common dependency.
 
